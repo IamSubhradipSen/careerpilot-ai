@@ -1,4 +1,4 @@
-import type{ Response } from "express";
+import type { Response } from "express";
 
 interface ApiResponse<T> {
   success: boolean;
@@ -11,7 +11,7 @@ const sendResponse = <T>(
   statusCode: number,
   payload: ApiResponse<T>
 ) => {
-  res.status(statusCode).json(payload);
+  return res.status(statusCode).json(payload);
 };
 
 export default sendResponse;
