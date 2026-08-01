@@ -3,6 +3,10 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 
+import apiRoutes from "./routes/index.js";
+import notFound from "./shared/middleware/notFound.js";
+import errorHandler from "./shared/middleware/errorHandler.js";
+
 const app = express();
 
 app.use(express.json());
@@ -10,13 +14,10 @@ app.use(cors());
 app.use(helmet());
 app.use(morgan("dev"));
 
-app.get("/api/v1/health", (_req, res) => {
-    res.status(200).json({
-        success: true,
-        message: "CareerPilot API Running 🚀",
-        version: "1.0.0",
-        timestamp: new Date().toISOString()
-    });
-});
+app.use("/api/v1", apiRoutes);
+
+app.use(notFound);
+
+app.use(errorHandler);
 
 export default app;
