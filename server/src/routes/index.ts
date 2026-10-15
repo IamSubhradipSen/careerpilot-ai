@@ -26,6 +26,8 @@ console.log("✅ jobs imported");
 import atsRoutes from "../modules/ats/ats.routes.js";
 console.log("✅ ats imported");
 
+import dashboardRoutes from "../modules/dashboard/dashboard.routes.js";
+
 const router = Router();
 
 router.use("/health", healthRoutes);
@@ -36,6 +38,7 @@ router.use("/roadmap", roadmapRoutes);
 router.use("/interview", interviewRoutes);
 router.use("/jobs", jobsRoutes);
 router.use("/ats", atsRoutes);
+router.use("/dashboard", dashboardRoutes);
 
 console.log("✅ All routes registered");
 
