@@ -1,31 +1,56 @@
 
 import { useEffect, useState } from "react";
 import "./App.css";
+
 import dashboardService, {
   type DashboardData,
 } from "./services/dashboard.service";
 
+import authService, { type AuthUser } from "./services/auth.service";
+
+import ResumeAnalyzer from "./features/resume/ResumeAnalyzer";
+
+type AuthMode = "login" | "register";
+
 function App() {
+  const [token, setToken] = useState(
+    () => localStorage.getItem("accessToken") || ""
+  );
+
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (!token) {
+      setDashboard(null);
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
+
+    setLoading(true);
+    setError("");
 
     dashboardService
       .getOverview()
       .then((data) => {
         if (!cancelled) {
           setDashboard(data);
-          setError("");
         }
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setError(
-            "Unable to load dashboard data. Please log in and try again."
-          );
+          setError("Unable to load dashboard data. Please log in again.");
           console.error("Dashboard API error:", err);
         }
       })
@@ -38,7 +63,162 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [token]);
+
+  async function handleAuthSubmit(
+    event: React.FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+
+    setAuthError("");
+    setAuthLoading(true);
+
+    try {
+      if (authMode === "register") {
+        await authService.register({ name, email, password });
+      }
+
+      const loggedInUser = await authService.login({ email, password });
+
+      setUser(loggedInUser);
+      setToken(localStorage.getItem("accessToken") || "");
+      setPassword("");
+    } catch (err: unknown) {
+      console.error("Authentication error:", err);
+
+      setAuthError(
+        "Authentication failed. Check your details and make sure the backend server is running."
+      );
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  function handleLogout() {
+    authService.logout();
+
+    setToken("");
+    setUser(null);
+    setDashboard(null);
+    setError("");
+    setPassword("");
+    setAuthMode("login");
+  }
+
+  if (!token) {
+    return (
+      <div className="auth-page">
+        <section className="auth-card">
+          <div className="brand auth-brand">
+            <span className="brand-icon">C</span>
+            <span>
+              CareerPilot<span className="accent"> AI</span>
+            </span>
+          </div>
+
+          <span className="eyebrow">YOUR CAREER COMMAND CENTER</span>
+
+          <h1>
+            {authMode === "login"
+              ? "Welcome back."
+              : "Create your account."}
+          </h1>
+
+          <p className="auth-description">
+            {authMode === "login"
+              ? "Sign in to continue building your future."
+              : "Start planning your next career move with CareerPilot AI."}
+          </p>
+
+          <form className="auth-form" onSubmit={handleAuthSubmit}>
+            {authMode === "register" && (
+              <label>
+                Full name
+
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  minLength={3}
+                  maxLength={50}
+                  autoComplete="name"
+                  required
+                />
+              </label>
+            )}
+
+            <label>
+              Email address
+
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                autoComplete="email"
+                required
+              />
+            </label>
+
+            <label>
+              Password
+
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                minLength={8}
+                maxLength={100}
+                autoComplete={
+                  authMode === "login"
+                    ? "current-password"
+                    : "new-password"
+                }
+                required
+              />
+            </label>
+
+            {authError && (
+              <div className="dashboard-error" role="alert">
+                {authError}
+              </div>
+            )}
+
+            <button
+              className="primary-button auth-submit"
+              type="submit"
+              disabled={authLoading}
+            >
+              {authLoading
+                ? "Please wait..."
+                : authMode === "login"
+                  ? "Sign in"
+                  : "Create account"}
+            </button>
+          </form>
+
+          <p className="auth-switch">
+            {authMode === "login"
+              ? "New to CareerPilot AI?"
+              : "Already have an account?"}{" "}
+
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode(
+                  authMode === "login" ? "register" : "login"
+                );
+                setAuthError("");
+              }}
+            >
+              {authMode === "login"
+                ? "Create an account"
+                : "Sign in"}
+            </button>
+          </p>
+        </section>
+      </div>
+    );
+  }
 
   const stats = dashboard?.statistics;
 
@@ -61,7 +241,7 @@ function App() {
       title: "Career roadmaps",
       value: stats?.totalRoadmaps,
       description: "Plan your next steps",
-      icon: "⌁",
+      icon: "⌘",
       color: "green",
     },
     {
@@ -94,7 +274,7 @@ function App() {
       title: "Career Roadmap",
       description:
         "Organize your learning goals into manageable milestones.",
-      icon: "⌁",
+      icon: "⌘",
       color: "green",
       href: "#roadmap",
     },
@@ -140,28 +320,38 @@ function App() {
           <a className="nav-item active" href="#dashboard">
             ▦ Dashboard
           </a>
+
           <a className="nav-item" href="#resume">
             ▤ Resume Analyzer
           </a>
+
           <a className="nav-item" href="#portfolio">
             ◈ Portfolio
           </a>
+
           <a className="nav-item" href="#roadmap">
-            ⌁ Career Roadmap
+            ⌘ Career Roadmap
           </a>
+
           <a className="nav-item" href="#interviews">
             ◎ Mock Interviews
           </a>
+
           <a className="nav-item" href="#jobs">
             ⌕ Job Tracker
           </a>
         </nav>
 
         <div className="sidebar-footer">
-          <div className="avatar">B</div>
+          <div className="avatar">
+            {(user?.name || "B").charAt(0).toUpperCase()}
+          </div>
+
           <div>
-            <strong>Career Builder</strong>
-            <small>Your career journey</small>
+            <strong>{user?.name || "Career Builder"}</strong>
+            <small>
+              {user?.email || "Your career journey"}
+            </small>
           </div>
         </div>
       </aside>
@@ -175,8 +365,12 @@ function App() {
             <h1>Dashboard</h1>
           </div>
 
-          <button className="profile-button" type="button">
-            B&nbsp; My Workspace
+          <button
+            className="profile-button"
+            type="button"
+            onClick={handleLogout}
+          >
+            Sign out ↗
           </button>
         </header>
 
@@ -184,11 +378,9 @@ function App() {
           <div className="dashboard-error" role="alert">
             <strong>Dashboard unavailable</strong>
             <p>{error}</p>
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-            >
-              Try again
+
+            <button type="button" onClick={handleLogout}>
+              Sign in again
             </button>
           </div>
         )}
@@ -196,7 +388,7 @@ function App() {
         <section className="welcome">
           <div>
             <span className="pill">
-              ✦ YOUR NEXT CHAPTER STARTS HERE
+              ✧ YOUR NEXT CHAPTER STARTS HERE
             </span>
 
             <h2>
@@ -214,9 +406,9 @@ function App() {
               className="primary-button"
               type="button"
               onClick={() =>
-                document
-                  .getElementById("tools")
-                  ?.scrollIntoView({ behavior: "smooth" })
+                document.getElementById("tools")?.scrollIntoView({
+                  behavior: "smooth",
+                })
               }
             >
               Explore your tools <span>→</span>
@@ -230,11 +422,14 @@ function App() {
             <div className="art-card">
               <span className="sparkle">✦</span>
               <div className="chart-icon">↗</div>
+
               <strong>Career growth</strong>
               <small>Your journey, your momentum.</small>
+
               <div className="progress">
                 <span />
               </div>
+
               <small>Keep moving forward</small>
             </div>
           </div>
@@ -250,7 +445,11 @@ function App() {
 
           <span className="live-indicator">
             <span />
-            {loading ? "Syncing data" : error ? "Connection issue" : "Live overview"}
+            {loading
+              ? "Syncing data"
+              : error
+                ? "Connection issue"
+                : "Live overview"}
           </span>
         </section>
 
@@ -264,7 +463,11 @@ function App() {
               <p>{card.title}</p>
 
               <strong>
-                {loading ? "…" : error ? "—" : (card.value ?? 0)}
+                {loading
+                  ? "…"
+                  : error
+                    ? "—"
+                    : (card.value ?? 0)}
               </strong>
 
               <small>{card.description}</small>
@@ -281,7 +484,9 @@ function App() {
 
         <section className="activity-section">
           {loading ? (
-            <p className="activity-message">Loading recent activity…</p>
+            <p className="activity-message">
+              Loading recent activity…
+            </p>
           ) : error ? (
             <p className="activity-message">
               Recent activity will appear after the dashboard connects.
@@ -289,16 +494,23 @@ function App() {
           ) : dashboard?.recentActivity.interviews.length ? (
             <div className="activity-list">
               {dashboard.recentActivity.interviews.map((interview) => (
-                <article className="activity-item" key={interview.id}>
+                <article
+                  className="activity-item"
+                  key={interview.id}
+                >
                   <span className="stat-icon orange">◎</span>
+
                   <div className="activity-details">
                     <strong>{interview.jobRole}</strong>
+
                     <small>
-                      {interview.difficulty} difficulty
-                      {" · "}
-                      {new Date(interview.createdAt).toLocaleDateString()}
+                      {interview.difficulty} difficulty ·{" "}
+                      {new Date(
+                        interview.createdAt
+                      ).toLocaleDateString()}
                     </small>
                   </div>
+
                   <span className="activity-score">
                     {interview.score == null
                       ? "Not scored"
@@ -309,7 +521,8 @@ function App() {
             </div>
           ) : (
             <p className="activity-message">
-              No interview sessions yet. Your recent activity will appear here.
+              No interview sessions yet. Your recent activity will
+              appear here.
             </p>
           )}
         </section>
@@ -342,9 +555,14 @@ function App() {
           </div>
         </section>
 
+        {/* Resume Analyzer integration */}
+        <ResumeAnalyzer />
+
         <footer className="footer">
           <span>CareerPilot AI</span>
-          <span>Designed for your next opportunity ✦</span>
+          <span>
+            Designed for your next opportunity ✦
+          </span>
         </footer>
       </main>
     </div>

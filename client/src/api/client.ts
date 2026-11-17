@@ -16,9 +16,13 @@ apiClient.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
+    // Let the browser set the multipart boundary for FormData uploads.
+    if (config.data instanceof FormData) {
+      config.headers.delete("Content-Type");
+    }
+
     return config;
   }
 );
 
 export default apiClient;
-

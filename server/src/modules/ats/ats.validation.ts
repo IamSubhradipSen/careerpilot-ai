@@ -1,3 +1,4 @@
+
 import { z } from "zod";
 
 export const createATSAnalysisSchema = z.object({
@@ -5,17 +6,7 @@ export const createATSAnalysisSchema = z.object({
 
   jobDescription: z
     .string()
-    .min(10, "Job description is too short"),
-
-  score: z
-    .number()
-    .int()
-    .min(0)
-    .max(100),
-
-  matchedSkills: z.array(z.string()).default([]),
-
-  missingSkills: z.array(z.string()).default([]),
-
-  suggestions: z.array(z.string()).default([]),
+    .trim()
+    .min(30, "Job description must contain at least 30 characters")
+    .max(15000, "Job description is too long"),
 });
